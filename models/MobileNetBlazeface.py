@@ -295,7 +295,7 @@ class BlazeFace(nn.Module):
 
         return filtered_detections
 
-    def _tensors_to_detections(self, raw_box_tensor, raw_score_tensor, anchors):
+    def _tensors_to_detections(self, raw_box_tensor, raw_score_tensor, anchors, test=False):
         """The output of the neural network is a tensor of shape (b, 896, 16)
         containing the bounding box regressor predictions, as well as a tensor
         of shape (b, 896, 1) with the classification confidences.
@@ -321,7 +321,8 @@ class BlazeFace(nn.Module):
         thresh = self.score_clipping_thresh
         raw_score_tensor = raw_score_tensor.clamp(-thresh, thresh)
         detection_scores = raw_score_tensor.sigmoid().squeeze(dim=-1)
-        
+        if test:
+           return detection_scores
         # Note: we stripped off the last dimension from the scores tensor
         # because there is only has one class. Now we can simply use a mask
         # to filter out the boxes with too low confidence.
@@ -379,18 +380,18 @@ class BlazeFace(nn.Module):
         mediapipe/calculators/util/non_max_suppression_calculator.cc
         mediapipe/calculators/util/non_max_suppression_calculator.proto
         """
+        print('detections', len(detections))
         if len(detections) == 0: return []
 
         output_detections = []
-
+        
         # Sort the detections from highest to lowest score.
         remaining = torch.argsort(detections[:, 16], descending=True)
-        print('remaining', len(remaining))
         count = 0
         while len(remaining) > 0:
             count += 1
             detection = detections[remaining[0]]
-
+            
             # Compute the overlap between the first box and the other
             # remaining boxes. (Note that the other_boxes also include
             # the first_box.)

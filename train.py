@@ -64,7 +64,7 @@ def get_dataset(config):
     """ Dataset And Augmentation
     """
     train_transform = transforms.Compose([
-            #transforms.RandomHorizontalFlip(),
+            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             #transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
         ])
@@ -77,8 +77,9 @@ def get_dataset(config):
                            height=config.height, transform=train_transform)
     val_dst = DataLoader(image_dir=config.valid_mask_dir, width=config.width,
                          height=config.height, transform=val_transform)
-    
-    return train_dst, val_dst
+    test_dst = DataLoader(image_dir=config.test_dir, width=config.width,
+                         height=config.height, transform=val_transform)
+    return train_dst, val_dst, test_dst
    
 def call_data_loader(dst, bs=4, shuffle=True, num_worker=0):
     loader = data.DataLoader(
@@ -111,15 +112,16 @@ def load_anchors(device, path=ANCHOR_PATH):
     
 def kl_divergence_loss(logits, target):
     T = 10
-    alpha = 0
-    K = 100
-    preds_ = torch.flatten(logits[0], 1)
-    #preds_ = torch.sigmoid(preds_)
-
-    teacher = torch.flatten(target[0], 1)
-    #teacher = torch.sigmoid(teacher)
+    alpha = 0.6
+    K = 1
+    flatten = nn.Flatten()
+    logits = torch.cat((logits[0], logits[1]), 2)         
+    preds_ = flatten(logits)
+    target = torch.cat((target[0], target[1]), 2)
+    teacher = flatten(target)
+    
     criterion = nn.L1Loss() #nn.MSELoss()
-    kl_loss = nn.KLDivLoss()(F.log_softmax((preds_ / T), dim = 1), F.softmax((teacher / T), dim = 1))*(alpha * T * T) + criterion(logits[0], target[0]) * (1-alpha)
+    kl_loss = nn.KLDivLoss(reduction="batchmean")(F.log_softmax((preds_ / T), dim = 1), F.softmax((teacher / T), dim = 1))*(alpha * T * T) + criterion(logits, target) * (1-alpha)
     return kl_loss * K
 
 def train(config, device, teacher_net, student_net, num_workers, epochs=10):
@@ -129,14 +131,12 @@ def train(config, device, teacher_net, student_net, num_workers, epochs=10):
     lr = config.lr
     eta_min = config.eta_min
     t_max = config.t_max
-    val_interval = config.val_interval
-    temperature = config.temperature
-    lambda_factor = config.lambda_factor
 
     print('loading dataloader....')
-    train_dst, val_dst = get_dataset(config)
+    train_dst, val_dst, test_dst = get_dataset(config)
     train_loader = call_data_loader(train_dst, bs=config.batch_size, num_worker=num_workers)
     val_loader = call_data_loader(val_dst, bs=config.val_batch_size, num_worker=num_workers)
+    test_loader = call_data_loader(test_dst, bs=1, num_worker=num_workers)
     
     writer = SummaryWriter(log_dir=config.TRAIN_TENSORBOARD_DIR,
                            filename_suffix=f'OPT_{config.TRAIN_OPTIMIZER}_LR_{config.lr}_BS_Size_{config.width}',
@@ -145,56 +145,73 @@ def train(config, device, teacher_net, student_net, num_workers, epochs=10):
     print('load mdoel && set parameter')
     npy_anchors = load_anchors(device, path=ANCHOR_PATH)
     front_net = load_blazeface_net(device, teacher=False)
-        
+    
+    acc_criterion = nn.L1Loss()    
     model = student_net
     optimizer, scheduler = create_optimizer(model, config)
-    global_step = 0
-    c = 1
-    mb = master_bar(range(epochs))
-    for epoch in mb:
+    cur_itrs = 0
+    total_itrs = config.total_itrs
+
+    while cur_itrs < total_itrs:
         start_time = time.time()
         model.train()
         avg_loss = 0.
-        for i, images in enumerate(progress_bar(train_loader)):
-            global_step += 1
+        for images in progress_bar(train_loader):
+            cur_itrs += 1
             x_batch = images.to(device, dtype=torch.float32)
 
             optimizer.zero_grad()
-            lesson_output = teacher_net(x_batch)
+            lesson = teacher_net(x_batch)
             logits = model(x_batch)
-            #lessen_detections = mean(front_net._tensors_to_detections(lesson_output[0], lesson_output[1], npy_anchors))
-            #logits_detections = mean(front_net._tensors_to_detections(logits[0], logits[1], npy_anchors))
-                      
-            loss = kl_divergence_loss(logits, lesson_output) 
+            
+            loss = kl_divergence_loss(logits, lesson) 
             loss.backward()
             optimizer.step()
 
-            avg_loss += loss.item() / len(train_loader)
-            if i %20==0:
-                print('avg_loss', avg_loss) 
+            avg_loss += loss.item() 
+            if cur_itrs % 100==0:
+                print('avg_loss', avg_loss/100)
+                writer.add_scalar('train/avg_Loss', avg_loss, cur_itrs) 
                 avg_loss = 0.
-            c += 1
-            if c %200==0:
+          
+            if cur_itrs %2000==0:
                 avg_val_loss = 0
                 model.eval()
                 for idx, val_batch in tqdm(enumerate(val_loader)):
                     val_batch = val_batch.to(device, dtype=torch.float32)
                     ## validation kl_divergence
                     val_lesson = teacher_net(val_batch)
-                    val_logits = model(x_batch)
-                    #val_lessen_detections = front_net._tensors_to_detections(val_lesson[0], val_lesson[1], npy_anchors)
-                #val_logits_detections = front_net._tensors_to_detections(val_logits[0], val_logits[1], npy_anchors)
+                    val_logits = model(val_batch)
                     val_loss = kl_divergence_loss(val_logits, val_lesson)
                     avg_val_loss += val_loss.item() / len(val_loader)
-                         
+                     
                 print('val_loss', avg_val_loss)
-                writer.add_scalar('train/avg_Loss', avg_loss, global_step)  
-                writer.add_scalar('valid/avg_loss', avg_val_loss, global_step)
-                print('{0}/{1}'.format(epoch, epochs), 'avg_loss', avg_loss)
-                torch.save(model.state_dict(), 'checkpoints/distillation_ep{0}_totalep{1}.pth'.format(epoch, epochs))
-                print('succeess to checkpoints/distillation_ep{0}_totalep{1}.pth'.format(epoch, epochs))
-        scheduler.step()
-    writer.close()
+                writer.add_scalar('valid/avg_loss', avg_val_loss, cur_itrs)
+                
+                torch.save(model.state_dict(), 'checkpoints/distillation_totaliter{}.pth'.format(cur_itrs))
+                print('succeess to checkpoints/distillation_totaliter{}.pth'.format(cur_itrs))
+                model.train()
+            
+            if cur_itrs %1000==0: 
+                model.eval()
+                avg_mae_acc = 0
+                for test_batch in test_loader:
+                    test_batch = test_batch.to(device, dtype=torch.float32)
+                    test_lesson = teacher_net(test_batch)
+                    test_logits = model(test_batch)
+                    #lessen_score = front_net._tensors_to_detections(test_lesson[0], test_lesson[1], npy_anchors, test=True)
+                    #logits_score = front_net._tensors_to_detections(test_logits[0], test_logits[1], npy_anchors, test=True)
+                    mae_score = acc_criterion(test_logits[0], test_lesson[0])
+                    avg_mae_acc += mae_score / len(test_loader)
+             
+                print('mae accuracy', avg_mae_acc)
+                writer.add_scalar('test/avg_mae_acc', avg_mae_acc, cur_itrs)
+            
+            if cur_itrs > total_itrs:
+                break
+            model.train()
+            scheduler.step()
+        writer.close()
 
 if __name__=='__main__':
     cfg = Cfg
@@ -204,10 +221,10 @@ if __name__=='__main__':
     
     teacher_net = load_blazeface_net(device, teacher=True)
     student_net = load_blazeface_net(device, teacher=False)
-    front_net = load_blazeface_net(device, teacher=False)
     train(config=cfg,
           device=device,
           teacher_net = teacher_net,
           student_net = student_net,
-          num_workers=0,
-          epochs=cfg.TRAIN_EPOCHS)
+          num_workers=0)
+
+
