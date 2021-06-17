@@ -110,15 +110,17 @@ def load_anchors(device, path=ANCHOR_PATH):
     
     
 def kl_divergence_loss(logits, target):
-    temperature = 10
-    lambda_factor = 1
-    rkl_loss = F.kl_div(F.log_softmax((logits[0] / temperature), dim = 0), F.softmax((target[0] / temperature), dim = 0),
-                                reduction="batchmean")
+    T = 10
+    alpha = 0
+    K = 100
+    preds_ = torch.flatten(logits[0], 1)
+    #preds_ = torch.sigmoid(preds_)
 
-    ckl_loss = F.kl_div(F.log_softmax((logits[1] / temperature), dim = 0), F.softmax((target[1] / temperature), dim = 0),
-                                reduction="batchmean").mean()
-    kl_loss = rkl_loss + ckl_loss
-    return kl_loss/2
+    teacher = torch.flatten(target[0], 1)
+    #teacher = torch.sigmoid(teacher)
+    criterion = nn.L1Loss() #nn.MSELoss()
+    kl_loss = nn.KLDivLoss()(F.log_softmax((preds_ / T), dim = 1), F.softmax((teacher / T), dim = 1))*(alpha * T * T) + criterion(logits[0], target[0]) * (1-alpha)
+    return kl_loss * K
 
 def train(config, device, teacher_net, student_net, num_workers, epochs=10):
     # config
@@ -170,12 +172,12 @@ def train(config, device, teacher_net, student_net, num_workers, epochs=10):
             avg_loss += loss.item() / len(train_loader)
             if i %20==0:
                 print('avg_loss', avg_loss) 
-            
+                avg_loss = 0.
             c += 1
             if c %200==0:
                 avg_val_loss = 0
                 model.eval()
-                for idx, val_batch in enumerate(val_loader):
+                for idx, val_batch in tqdm(enumerate(val_loader)):
                     val_batch = val_batch.to(device, dtype=torch.float32)
                     ## validation kl_divergence
                     val_lesson = teacher_net(val_batch)
@@ -184,8 +186,7 @@ def train(config, device, teacher_net, student_net, num_workers, epochs=10):
                 #val_logits_detections = front_net._tensors_to_detections(val_logits[0], val_logits[1], npy_anchors)
                     val_loss = kl_divergence_loss(val_logits, val_lesson)
                     avg_val_loss += val_loss.item() / len(val_loader)
-                    if idx==100:
-                        break
+                         
                 print('val_loss', avg_val_loss)
                 writer.add_scalar('train/avg_Loss', avg_loss, global_step)  
                 writer.add_scalar('valid/avg_loss', avg_val_loss, global_step)
@@ -210,5 +211,3 @@ if __name__=='__main__':
           student_net = student_net,
           num_workers=0,
           epochs=cfg.TRAIN_EPOCHS)
-
-
