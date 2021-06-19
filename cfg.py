@@ -19,7 +19,7 @@ Cfg.total_itrs = 300000
 
 Cfg.gpu_id = '1'
 Cfg.test_dir = '../UTKDATA/test'
-Cfg.train_img_dir = '../UTKDATA/UTKFace'
+Cfg.train_img_dir = '../UTKDATA/part1'
 Cfg.valid_mask_dir = '../UTKDATA/part3'
 Cfg.TRAIN_TENSORBOARD_DIR = os.path.join(_BASE_DIR, 'log')
 Cfg.checkpoints = os.path.join(_BASE_DIR, 'checkpoints')

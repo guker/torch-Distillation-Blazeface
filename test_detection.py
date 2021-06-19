@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 from models.MobileNetBlazeface import BlazeFace
+from models.ResnetBlazeface import BlazeFace as resnetBlazeFace
 
 def plot_detections(img, detections, with_keypoints=True):
     fig, ax = plt.subplots(1, figsize=(10, 10))
@@ -39,22 +40,27 @@ def plot_detections(img, detections, with_keypoints=True):
                                         edgecolor="lightskyblue", facecolor="none", 
                                         alpha=detections[i, 16])
                 ax.add_patch(circle)
-        
     plt.show()
 
 
 def load_blazeface_net(device, weight=None, teacher=False):
-    front_net = BlazeFace().to(device)
+    student_net = resnetBlazeFace().to(device)
     if teacher:
-        front_net.load_state_dict(torch.load(weight))
+        teacher_net = BlazeFace().to(device)
+        teacher_net.load_state_dict(torch.load("src/blazeface.pth"))
+        teacher_net.min_score_thresh = 0.75
+        teacher_net.min_suppression_threshold = 0.3
+        return teacher_net
     # Optionally change the thresholds:
-    front_net.min_score_thresh = 0.75
-    front_net.min_suppression_threshold = 0.3
-    return front_net
+    student_net.load_state_dict(torch.load(weight))
+    student_net.min_score_thresh = 0.75
+    student_net.min_suppression_threshold = 0.3
+    return student_net
+
 
 def _preprocess(x):
     """Converts the image pixels to the range [-1, 1]."""
-    return x.float() / 127.5 - 1.0
+    return x.float() / 255
 
 
 def load_anchors(device, path="src/anchors.npy"):
@@ -90,19 +96,23 @@ def post_process(front_net, out, anchors_):
 
 if __name__=='__main__':
     weight = str(sys.argv[1])
-    #weight = "src/blazeface.pth"
     filenames = [ "face1.png", "face2.png", "face3.png" ]
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    teacher_net = load_blazeface_net(device, weight, teacher=True)
-    student_net = load_blazeface_net(device, teacher=False)
-    front_net = load_blazeface_net(device, teacher=False)
+    teacher_net = load_blazeface_net(device, teacher=True)
+    student_net = load_blazeface_net(device, weight=weight, teacher=False)
+    front_net = load_blazeface_net(device, teacher=True)
 
     anchors_ = load_anchors(device, path="src/anchors.npy")
     xfront = load_images(filenames)
     x = torch.from_numpy(xfront).permute((0, 3, 1, 2))
     x = x.to(device)
     x = _preprocess(x)
+    print('teacher detection')
     out = teacher_net(x)
     print(out[0].shape, out[1].shape)
     post_process(front_net, out, anchors_)
-
+    
+    print('student detection')
+    sout = student_net(x)
+    print(sout[0].shape, sout[1].shape)
+    post_process(front_net, sout, anchors_) 

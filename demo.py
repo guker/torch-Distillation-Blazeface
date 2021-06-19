@@ -10,9 +10,6 @@ def load_blazeface_net(device):
     front_net = BlazeFace().to(device)
     front_net.load_weights("src/blazeface.pth")
     front_net.load_anchors("src/anchors.npy")
-    back_net = BlazeFace(back_model=True).to(device)
-    back_net.load_weights("src/blazefaceback.pth")
-    back_net.load_anchors("src/anchorsback.npy")
 
     # Optionally change the thresholds:
     front_net.min_score_thresh = 0.75

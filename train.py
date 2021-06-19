@@ -21,17 +21,24 @@ from fastprogress import master_bar, progress_bar
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from cfg import Cfg
 from models.MobileNetBlazeface import BlazeFace
+from models.ResnetBlazeface import BlazeFace as resnetBlazeFace
 
 ANCHOR_PATH = "src/anchors.npy"    
     
-def load_blazeface_net(device, teacher=False):
-    front_net = BlazeFace().to(device)
+def load_blazeface_net(device, weights=None, teacher=False):
+    student_net = resnetBlazeFace().to(device)
+    if weights:
+        student_net.load_state_dict(torch.load(weights))
     if teacher:
-        front_net.load_weights("src/blazeface.pth")
+        teacher_net = BlazeFace().to(device)
+        teacher_net.load_weights("src/blazeface.pth")
+        teacher_net.min_score_thresh = 0.75
+        teacher_net.min_suppression_threshold = 0.3
+        return teacher_net
     # Optionally change the thresholds:
-    front_net.min_score_thresh = 0.75
-    front_net.min_suppression_threshold = 0.3
-    return front_net
+    student_net.min_score_thresh = 0.75
+    student_net.min_suppression_threshold = 0.3
+    return student_net
 
 
 class DataLoader(data.Dataset):
@@ -52,19 +59,20 @@ class DataLoader(data.Dataset):
         img = img.resize((self.height, self.width))
         #img = self._preprocess(img)
         img = self.transforms(img)
-        return img / 127.5 - 1.0
+        return img / 255
 
     def __len__(self):
         return len(self.images)
         
     def _preprocess(self, x):
-        return x / 127.5 - 1.0
+        return x / 255
 
 def get_dataset(config):
     """ Dataset And Augmentation
     """
     train_transform = transforms.Compose([
             transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(degrees=20),
             transforms.ToTensor(),
             #transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
         ])
@@ -111,17 +119,11 @@ def load_anchors(device, path=ANCHOR_PATH):
     
     
 def kl_divergence_loss(logits, target):
-    T = 10
+    T = 0.01
     alpha = 0.6
     K = 1
-    flatten = nn.Flatten()
-    logits = torch.cat((logits[0], logits[1]), 2)         
-    preds_ = flatten(logits)
-    target = torch.cat((target[0], target[1]), 2)
-    teacher = flatten(target)
-    
-    criterion = nn.L1Loss() #nn.MSELoss()
-    kl_loss = nn.KLDivLoss(reduction="batchmean")(F.log_softmax((preds_ / T), dim = 1), F.softmax((teacher / T), dim = 1))*(alpha * T * T) + criterion(logits, target) * (1-alpha)
+    criterion = nn.L1Loss()
+    kl_loss = nn.KLDivLoss(reduction="batchmean")(F.log_softmax((logits[0] / T), dim = 1), F.softmax((target[0] / T), dim = 1))*(alpha * T * T) + criterion(logits[0], target[0]) * (1-alpha)
     return kl_loss * K
 
 def train(config, device, teacher_net, student_net, num_workers, epochs=10):
@@ -188,8 +190,8 @@ def train(config, device, teacher_net, student_net, num_workers, epochs=10):
                 print('val_loss', avg_val_loss)
                 writer.add_scalar('valid/avg_loss', avg_val_loss, cur_itrs)
                 
-                torch.save(model.state_dict(), 'checkpoints/distillation_totaliter{}.pth'.format(cur_itrs))
-                print('succeess to checkpoints/distillation_totaliter{}.pth'.format(cur_itrs))
+                torch.save(model.state_dict(), 'checkpoints/student_iter{}.pth'.format(cur_itrs))
+                print('succeess to checkpoints/student_iter{}.pth'.format(cur_itrs))
                 model.train()
             
             if cur_itrs %1000==0: 
@@ -218,9 +220,9 @@ if __name__=='__main__':
     os.makedirs(cfg.checkpoints, exist_ok=True)
     os.environ["CUDA_VISIBLE_DEVICES"] = cfg.gpu_id
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    
+    student_weights = 'checkpoints/iter2max600000.pth' 
     teacher_net = load_blazeface_net(device, teacher=True)
-    student_net = load_blazeface_net(device, teacher=False)
+    student_net = load_blazeface_net(device, weights=student_weights, teacher=False)
     train(config=cfg,
           device=device,
           teacher_net = teacher_net,
