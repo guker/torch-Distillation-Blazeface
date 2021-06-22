@@ -20,6 +20,8 @@ from fastprogress import master_bar, progress_bar
 
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from cfg import Cfg
+from losses.kl_loss import kl_divergence_loss
+
 from models.MobileNetBlazeface import BlazeFace
 from models.ResnetBlazeface import BlazeFace as resnetBlazeFace
 
@@ -117,14 +119,6 @@ def load_anchors(device, path=ANCHOR_PATH):
     assert(anchors.shape[1] == 4)
     return anchors
     
-    
-def kl_divergence_loss(logits, target):
-    T = 0.01
-    alpha = 0.6
-    K = 1
-    criterion = nn.L1Loss()
-    kl_loss = nn.KLDivLoss(reduction="batchmean")(F.log_softmax((logits[0] / T), dim = 1), F.softmax((target[0] / T), dim = 1))*(alpha * T * T) + criterion(logits[0], target[0]) * (1-alpha)
-    return kl_loss * K
 
 def train(config, device, teacher_net, student_net, num_workers, epochs=10):
     # config
@@ -196,18 +190,21 @@ def train(config, device, teacher_net, student_net, num_workers, epochs=10):
             
             if cur_itrs %1000==0: 
                 model.eval()
-                avg_mae_acc = 0
+                avg_rmae_acc = 0 
+                #avg_cmae_acc = 0
                 for test_batch in test_loader:
                     test_batch = test_batch.to(device, dtype=torch.float32)
                     test_lesson = teacher_net(test_batch)
                     test_logits = model(test_batch)
                     #lessen_score = front_net._tensors_to_detections(test_lesson[0], test_lesson[1], npy_anchors, test=True)
                     #logits_score = front_net._tensors_to_detections(test_logits[0], test_logits[1], npy_anchors, test=True)
-                    mae_score = acc_criterion(test_logits[0], test_lesson[0])
-                    avg_mae_acc += mae_score / len(test_loader)
-             
-                print('mae accuracy', avg_mae_acc)
-                writer.add_scalar('test/avg_mae_acc', avg_mae_acc, cur_itrs)
+                    mae_rscore = acc_criterion(test_logits[0], test_lesson[0])
+                    #mae_cscore = acc_criterion(test_logits[1], test_lesson[1])
+                    avg_rmae_acc += mae_rscore / len(test_loader)
+                    #avg_cmae_acc += mae_cscore / len(test_loader)
+                print('R mae accuracy', avg_rmae_acc)
+                #print('C mae accuracy', avg_cmae_acc) 
+                writer.add_scalar('test/avg_Rmae_acc', avg_rmae_acc, cur_itrs)
             
             if cur_itrs > total_itrs:
                 break
@@ -220,7 +217,7 @@ if __name__=='__main__':
     os.makedirs(cfg.checkpoints, exist_ok=True)
     os.environ["CUDA_VISIBLE_DEVICES"] = cfg.gpu_id
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    student_weights = 'checkpoints/iter2max600000.pth' 
+    student_weights = None
     teacher_net = load_blazeface_net(device, teacher=True)
     student_net = load_blazeface_net(device, weights=student_weights, teacher=False)
     train(config=cfg,

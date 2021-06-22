@@ -48,6 +48,7 @@ def load_blazeface_net(device, weight=None, teacher=False):
     if teacher:
         teacher_net = BlazeFace().to(device)
         teacher_net.load_state_dict(torch.load("src/blazeface.pth"))
+        teacher_net.load_anchors("src/anchors.npy")
         teacher_net.min_score_thresh = 0.75
         teacher_net.min_suppression_threshold = 0.3
         return teacher_net
@@ -83,8 +84,8 @@ def load_images(filenames):
     return xfront
 
 
-def post_process(front_net, out, anchors_):
-    detections = front_net._tensors_to_detections(out[0], out[1], anchors_)
+def post_process(front_net, out1, out2, anchors_):
+    detections = front_net._tensors_to_detections(out1, out2, anchors_)
     front_detections = []
     for i in range(len(detections)):
         faces = front_net._weighted_non_max_suppression(detections[i])
@@ -97,6 +98,7 @@ def post_process(front_net, out, anchors_):
 if __name__=='__main__':
     weight = str(sys.argv[1])
     filenames = [ "face1.png", "face2.png", "face3.png" ]
+    #filenames = [ "face1.jpg", "face2.jpg", "face3.jpg" ]
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     teacher_net = load_blazeface_net(device, teacher=True)
     student_net = load_blazeface_net(device, weight=weight, teacher=False)
@@ -105,14 +107,13 @@ if __name__=='__main__':
     anchors_ = load_anchors(device, path="src/anchors.npy")
     xfront = load_images(filenames)
     x = torch.from_numpy(xfront).permute((0, 3, 1, 2))
-    x = x.to(device)
-    x = _preprocess(x)
+    x = _preprocess(x.to(device))
     print('teacher detection')
-    out = teacher_net(x)
-    print(out[0].shape, out[1].shape)
-    post_process(front_net, out, anchors_)
+    tout = teacher_net(x)
+    post_process(front_net, tout[0], tout[1], anchors_)
     
     print('student detection')
     sout = student_net(x)
-    print(sout[0].shape, sout[1].shape)
-    post_process(front_net, sout, anchors_) 
+    print(tout[0].max(), sout[0].max())
+    print(tout[0].min(), sout[0].min())
+    post_process(front_net, sout[0], tout[1], anchors_) 
