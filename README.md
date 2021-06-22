@@ -34,3 +34,9 @@ def kl_divergence_loss(logits, target):
 # training log 
 
 
+
+
+# References
+・[MediaPipePyTorch](https://github.com/zmurez/MediaPipePyTorch)
+
+・[tf-blazeface](https://github.com/FurkanOM/tf-blazeface)
