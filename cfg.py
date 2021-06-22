@@ -15,7 +15,7 @@ Cfg.momentum = 0.9
 Cfg.TRAIN_OPTIMIZER = 'adam'
 Cfg.eta_min = 1e-5
 Cfg.t_max = 10
-Cfg.total_itrs = 300000
+Cfg.total_itrs = 9000000000000
 
 Cfg.gpu_id = '1'
 Cfg.test_dir = '../UTKDATA/test'

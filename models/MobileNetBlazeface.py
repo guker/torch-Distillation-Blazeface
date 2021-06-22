@@ -295,7 +295,7 @@ class BlazeFace(nn.Module):
 
         return filtered_detections
 
-    def _tensors_to_detections(self, raw_box_tensor, raw_score_tensor, anchors, test=False):
+    def _tensors_to_detections(self, raw_box_tensor, raw_score_tensor, anchors):
         """The output of the neural network is a tensor of shape (b, 896, 16)
         containing the bounding box regressor predictions, as well as a tensor
         of shape (b, 896, 1) with the classification confidences.
@@ -321,8 +321,7 @@ class BlazeFace(nn.Module):
         thresh = self.score_clipping_thresh
         raw_score_tensor = raw_score_tensor.clamp(-thresh, thresh)
         detection_scores = raw_score_tensor.sigmoid().squeeze(dim=-1)
-        if test:
-           return detection_scores
+        
         # Note: we stripped off the last dimension from the scores tensor
         # because there is only has one class. Now we can simply use a mask
         # to filter out the boxes with too low confidence.
