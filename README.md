@@ -8,7 +8,7 @@ This is Distillation for Converting performance of [MobileNet backborn BlazeFace
 
 
 Use KL divergence loss and softmax with temperature.
-```
+```python
 def kl_divergence_loss(logits, target):
     T = 0.01
     alpha = 0.6
