@@ -39,6 +39,13 @@ def kl_divergence_loss(logits, target):
 
 # training log 
 
+<b>loss curve</b>
+
+<img src="https://user-images.githubusercontent.com/48679574/123735623-84f43880-d8da-11eb-8fba-980765647bbf.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/123735625-86256580-d8da-11eb-92ea-caca8d2f7594.png" width="400px">
+
+
+<b>mae accuracy</b>
+<img src="https://user-images.githubusercontent.com/48679574/123735631-87569280-d8da-11eb-809e-a4be5611d57e.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/123735633-8887bf80-d8da-11eb-8ebc-9db46cfd7a09.png" width="400px">
 
 
 
