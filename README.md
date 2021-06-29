@@ -34,6 +34,8 @@ def kl_divergence_loss(logits, target):
 
 <b>2.MobileNet-backborn.(left)   Resnet-backborn(right)</b>
 
+<img src="https://user-images.githubusercontent.com/48679574/123735525-55ddc700-d8da-11eb-86c9-68f31b4b7d30.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/123735522-55453080-d8da-11eb-833d-e11411159e53.png" width="400px">
+
 
 # training log 
 
