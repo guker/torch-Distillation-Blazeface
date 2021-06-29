@@ -4,7 +4,8 @@
 # Abstract
 This is Distillation for Converting performance of [MobileNet backborn BlazeFace(google)](https://google.github.io/mediapipe/solutions/face_detection.html) to ResNet backborn BlazeFace(original).
 
-<img src="https://user-images.githubusercontent.com/48679574/122851087-5bbb3180-d349-11eb-8cda-82ff78a8efb4.png" width="700px">
+<b>Distillation sturacture</b>
+<img src="https://user-images.githubusercontent.com/48679574/123763800-1ecddc80-d8ff-11eb-93ed-d1cb89d20295.png" width="700px">
 
 
 Use KL divergence loss and softmax with temperature.
@@ -20,7 +21,7 @@ def kl_divergence_loss(logits, target):
 
 
 
-# Distillation perfomance (Resnet backborn BlazeFace)
+## Distillation perfomance (Resnet backborn BlazeFace)
 
 <b>1.MobileNet-backborn.(left)   Resnet-backborn(right)</b>
 
@@ -37,7 +38,7 @@ def kl_divergence_loss(logits, target):
 <img src="https://user-images.githubusercontent.com/48679574/123735525-55ddc700-d8da-11eb-86c9-68f31b4b7d30.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/123735522-55453080-d8da-11eb-833d-e11411159e53.png" width="400px">
 
 
-# training log 
+## training log 
 
 <b>loss curve</b>
 
