@@ -37,4 +37,5 @@ RUN pip3 install --upgrade pip
 RUN pip3 install torch==1.7.1+cu101 torchvision==0.8.2+cu101 torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
 RUN pip3 install -r /tmp/requirements.txt
 RUN pip3 install scikit-learn matplotlib seaborn tqdm pandas opencv-python 
+RUN pip3 install tensorboard
 CMD [ "/bin/bash" ]
