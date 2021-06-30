@@ -43,12 +43,12 @@ def kl_divergence_loss(logits, target):
 
 <b>loss curve</b>
 
-<img src="https://user-images.githubusercontent.com/48679574/123735623-84f43880-d8da-11eb-8fba-980765647bbf.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/123735625-86256580-d8da-11eb-92ea-caca8d2f7594.png" width="400px">
+<img src="https://user-images.githubusercontent.com/48679574/124040876-ba1a9b00-da40-11eb-99f7-6097a6b2e1f1.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/124040868-b6871400-da40-11eb-8453-fccfbbb90cb4.png" width="400px">
 
 
-<b>mae accuracy</b>
+<b>2 output mae accuracy</b>
 
-<img src="https://user-images.githubusercontent.com/48679574/123735631-87569280-d8da-11eb-809e-a4be5611d57e.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/123735633-8887bf80-d8da-11eb-8ebc-9db46cfd7a09.png" width="400px">
+<img src="https://user-images.githubusercontent.com/48679574/124040879-bb4bc800-da40-11eb-98f8-666461d94d5f.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/124040881-bbe45e80-da40-11eb-9beb-6de8ee746e29.png" width="400px">
 
 
 
