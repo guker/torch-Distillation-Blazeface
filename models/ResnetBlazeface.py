@@ -262,7 +262,7 @@ class BlazeFace(nn.Module):
 
         return self.predict_on_batch(img.unsqueeze(0))[0]
 
-    def predict_on_batch(self, x):
+    def predict_on_batch(self, x, check=None):
         """Makes a prediction on a batch of images.
         Arguments:
             x: a NumPy array of shape (b, H, W, 3) or a PyTorch tensor of
@@ -294,6 +294,8 @@ class BlazeFace(nn.Module):
         # 2. Run the neural network:
         with torch.no_grad():
             out = self.__call__(x)
+        if check:
+            print(out[0].max(), out[0].min(), out[1].max(), out[1].min())
         # 3. Postprocess the raw predictions:
         detections = self._tensors_to_detections(out[0], out[1], self.anchors)
 

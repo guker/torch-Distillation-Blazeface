@@ -5,10 +5,10 @@ import time
 from PIL import Image
 import matplotlib.pyplot as plt
 import datetime
-from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 import torch
+from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data as data
@@ -17,23 +17,23 @@ from torch.utils.data import Dataset, DataLoader
 import torchvision
 from torchvision.transforms import transforms
 from fastprogress import master_bar, progress_bar
-
 from torch.optim.lr_scheduler import CosineAnnealingLR
+
 from cfg import Cfg
 from losses.kl_loss import kl_divergence_loss
-
 from models.MobileNetBlazeface import BlazeFace
 from models.ResnetBlazeface import BlazeFace as resnetBlazeFace
+  
 
-ANCHOR_PATH = "src/anchors.npy"    
-    
 def load_blazeface_net(device, weights=None, teacher=False):
     student_net = resnetBlazeFace().to(device)
+    student_net.load_anchors("src/anchors.npy")
     if weights:
         student_net.load_state_dict(torch.load(weights))
     if teacher:
         teacher_net = BlazeFace().to(device)
-        teacher_net.load_weights("src/blazeface.pth")
+        teacher_net.load_state_dict(torch.load("src/blazeface.pth"))
+        teacher_net.load_anchors("src/anchors.npy")
         teacher_net.min_score_thresh = 0.75
         teacher_net.min_suppression_threshold = 0.3
         return teacher_net
@@ -57,31 +57,30 @@ class DataLoader(data.Dataset):
         self.images = [os.path.join(image_dir, path) for path in train_img_dir]
         self.transforms = transform
     def __getitem__(self, index):
-        img = Image.open(self.images[index]).convert('RGB')
-        img = img.resize((self.height, self.width))
-        #img = self._preprocess(img)
-        img = self.transforms(img)
-        return img / 255
+        image = Image.open(self.images[index])
+        # image = image.convert('RGB')
+        image = image.resize((self.height, self.width))
+        if self.transforms is not None:
+            image = self.transforms(image)
+        return image
 
     def __len__(self):
         return len(self.images)
-        
-    def _preprocess(self, x):
-        return x / 255
+
 
 def get_dataset(config):
     """ Dataset And Augmentation
     """
     train_transform = transforms.Compose([
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(degrees=20),
-            transforms.ToTensor(),
-            #transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-        ])
+        transforms.ToTensor(),
+        #transforms.RandomHorizontalFlip(),
+        #transforms.RandomRotation(degrees=10),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            ])
 
     val_transform = transforms.Compose([
             transforms.ToTensor(),
-            #transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
             ])
     train_dst = DataLoader(image_dir=config.train_img_dir, width=config.width,
                            height=config.height, transform=train_transform)
@@ -111,15 +110,6 @@ def create_optimizer(model, config):
     scheduler = CosineAnnealingLR(optimizer, T_max=config.t_max, eta_min=config.eta_min)
     return optimizer, scheduler
 
-def load_anchors(device, path=ANCHOR_PATH):
-    num_anchors = 896
-    anchors = torch.tensor(np.load(path), dtype=torch.float32, device=device)
-    assert(anchors.ndimension() == 2)
-    assert(anchors.shape[0] == num_anchors)
-    assert(anchors.shape[1] == 4)
-    return anchors
-    
-
 def train(config, device, teacher_net, student_net, num_workers, epochs=10):
     # config
     batch_size = config.batch_size
@@ -139,14 +129,12 @@ def train(config, device, teacher_net, student_net, num_workers, epochs=10):
                            comment=f'OPT_{config.TRAIN_OPTIMIZER}_LR_{config.lr}_BS_Size_{config.width}')
     
     print('load mdoel && set parameter')
-    npy_anchors = load_anchors(device, path=ANCHOR_PATH)
-    front_net = load_blazeface_net(device, teacher=False)
-    
-    acc_criterion = nn.L1Loss()    
+    acc_criterion = nn.MSELoss()    
     model = student_net
     optimizer, scheduler = create_optimizer(model, config)
     cur_itrs = 0
     total_itrs = config.total_itrs
+    teacher_net.eval()
 
     while cur_itrs < total_itrs:
         start_time = time.time()
@@ -170,7 +158,7 @@ def train(config, device, teacher_net, student_net, num_workers, epochs=10):
                 writer.add_scalar('train/avg_Loss', avg_loss, cur_itrs) 
                 avg_loss = 0.
           
-            if cur_itrs %2000==0:
+            if cur_itrs % 4000==0:
                 avg_val_loss = 0
                 model.eval()
                 for idx, val_batch in tqdm(enumerate(val_loader)):
@@ -188,24 +176,23 @@ def train(config, device, teacher_net, student_net, num_workers, epochs=10):
                 print('succeess to checkpoints/student_iter{}.pth'.format(cur_itrs))
                 model.train()
             
-            if cur_itrs %1000==0: 
+            if cur_itrs % 1000==0: 
                 model.eval()
                 avg_rmae_acc = 0 
-                #avg_cmae_acc = 0
+                avg_cmae_acc = 0
                 for test_batch in test_loader:
                     test_batch = test_batch.to(device, dtype=torch.float32)
                     test_lesson = teacher_net(test_batch)
                     test_logits = model(test_batch)
-                    #lessen_score = front_net._tensors_to_detections(test_lesson[0], test_lesson[1], npy_anchors, test=True)
-                    #logits_score = front_net._tensors_to_detections(test_logits[0], test_logits[1], npy_anchors, test=True)
                     mae_rscore = acc_criterion(test_logits[0], test_lesson[0])
-                    #mae_cscore = acc_criterion(test_logits[1], test_lesson[1])
+                    mae_cscore = acc_criterion(test_logits[1], test_lesson[1])
                     avg_rmae_acc += mae_rscore / len(test_loader)
-                    #avg_cmae_acc += mae_cscore / len(test_loader)
+                    avg_cmae_acc += mae_cscore / len(test_loader)
                 print('R mae accuracy', avg_rmae_acc)
-                #print('C mae accuracy', avg_cmae_acc) 
+                print('C mae accuracy', avg_cmae_acc) 
                 writer.add_scalar('test/avg_Rmae_acc', avg_rmae_acc, cur_itrs)
-            
+                writer.add_scalar('test/avg_Cmae_acc', avg_cmae_acc, cur_itrs)
+                model.train()
             if cur_itrs > total_itrs:
                 break
             model.train()
@@ -225,5 +212,3 @@ if __name__=='__main__':
           teacher_net = teacher_net,
           student_net = student_net,
           num_workers=0)
-
-

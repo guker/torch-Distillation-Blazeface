@@ -45,6 +45,7 @@ def plot_detections(img, detections, with_keypoints=True):
 
 def load_blazeface_net(device, weight=None, teacher=False):
     student_net = resnetBlazeFace().to(device)
+    student_net.load_anchors("src/anchors.npy")
     if teacher:
         teacher_net = BlazeFace().to(device)
         teacher_net.load_state_dict(torch.load("src/blazeface.pth"))
@@ -59,21 +60,6 @@ def load_blazeface_net(device, weight=None, teacher=False):
     return student_net
 
 
-def _preprocess(x):
-    """Converts the image pixels to the range [-1, 1]."""
-    return x.float() / 255
-
-
-def load_anchors(device, path="src/anchors.npy"):
-    num_anchors = 896
-    anchors = torch.tensor(np.load(path), dtype=torch.float32, device=device)
-    assert(anchors.ndimension() == 2)
-    assert(anchors.shape[0] == num_anchors)
-    assert(anchors.shape[1] == 4)
-    return anchors
-
-def torch2numpy(x):
-    return x.to('cpu').detach().numpy()
 
 def load_images(filenames):
     xfront = np.zeros((len(filenames), 128, 128, 3), dtype=np.uint8)
@@ -84,36 +70,23 @@ def load_images(filenames):
     return xfront
 
 
-def post_process(front_net, out1, out2, anchors_):
-    detections = front_net._tensors_to_detections(out1, out2, anchors_)
-    front_detections = []
-    for i in range(len(detections)):
-        faces = front_net._weighted_non_max_suppression(detections[i])
-        faces = torch.stack(faces) if len(faces) > 0 else torch.zeros((0, 17))
-        front_detections.append(faces)
-    for idx, d in enumerate(front_detections):
-          plot_detections(xfront[idx], torch2numpy(front_detections[idx]))
+def test_detect(front_net, xfront):
+  front_detections = front_net.predict_on_batch(xfront, check=True)
+  for idx, d in enumerate(front_detections):
+      plot_detections(xfront[idx], front_detections[idx])
 
 
 if __name__=='__main__':
     weight = str(sys.argv[1])
-    filenames = [ "face1.png", "face2.png", "face3.png" ]
-    #filenames = [ "face1.jpg", "face2.jpg", "face3.jpg" ]
+    ver = str(sys.argv[2])
+    if ver=='png':
+        filenames = [ "face1.png", "face2.png", "face3.png" ]
+    else:
+        filenames = [ "face1.jpg", "face2.jpg", "face3.jpg" ]
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     teacher_net = load_blazeface_net(device, teacher=True)
     student_net = load_blazeface_net(device, weight=weight, teacher=False)
-    front_net = load_blazeface_net(device, teacher=True)
-
-    anchors_ = load_anchors(device, path="src/anchors.npy")
-    xfront = load_images(filenames)
-    x = torch.from_numpy(xfront).permute((0, 3, 1, 2))
-    x = _preprocess(x.to(device))
-    print('teacher detection')
-    tout = teacher_net(x)
-    post_process(front_net, tout[0], tout[1], anchors_)
     
-    print('student detection')
-    sout = student_net(x)
-    print(tout[0].max(), sout[0].max())
-    print(tout[0].min(), sout[0].min())
-    post_process(front_net, sout[0], tout[1], anchors_) 
+    xfront = load_images(filenames)
+    test_detect(teacher_net, xfront)
+    test_detect(student_net, xfront)
