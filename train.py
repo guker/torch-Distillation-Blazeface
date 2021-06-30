@@ -58,7 +58,7 @@ class DataLoader(data.Dataset):
         self.transforms = transform
     def __getitem__(self, index):
         image = Image.open(self.images[index])
-        # image = image.convert('RGB')
+        image = image.convert('RGB')
         image = image.resize((self.height, self.width))
         if self.transforms is not None:
             image = self.transforms(image)
@@ -73,8 +73,8 @@ def get_dataset(config):
     """
     train_transform = transforms.Compose([
         transforms.ToTensor(),
-        #transforms.RandomHorizontalFlip(),
-        #transforms.RandomRotation(degrees=10),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(degrees=20),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
             ])
 
@@ -204,7 +204,7 @@ if __name__=='__main__':
     os.makedirs(cfg.checkpoints, exist_ok=True)
     os.environ["CUDA_VISIBLE_DEVICES"] = cfg.gpu_id
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    student_weights = None
+    student_weights = 'student_iter340000.pth'
     teacher_net = load_blazeface_net(device, teacher=True)
     student_net = load_blazeface_net(device, weights=student_weights, teacher=False)
     train(config=cfg,
