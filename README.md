@@ -6,7 +6,7 @@ This is Distillation for Converting performance of [MobileNet backborn BlazeFace
 
 <b>Distillation sturacture</b>
 
-<img src="https://user-images.githubusercontent.com/48679574/123763800-1ecddc80-d8ff-11eb-93ed-d1cb89d20295.png" width="700px">
+<img src="https://user-images.githubusercontent.com/48679574/124056945-9ae03580-da61-11eb-850c-3bee99724ef2.png" width="700px">
 
 
 Use KL divergence loss and softmax with temperature.
