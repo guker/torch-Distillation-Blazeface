@@ -36,7 +36,7 @@ def kl_divergence_loss(logits, target):
 
 <b>1.MobileNet-backborn (google pretrained tflite model)</b>
 
-<img src="https://user-images.githubusercontent.com/48679574/124057053-bea37b80-da61-11eb-9101-2b5b98081a66.png" width="600px"><img src="https://user-images.githubusercontent.com/48679574/124057045-bd724e80-da61-11eb-80f1-67572ea7ae45.png" width="600px">
+<img src="https://user-images.githubusercontent.com/48679574/124057053-bea37b80-da61-11eb-9101-2b5b98081a66.png" width="550px"><img src="https://user-images.githubusercontent.com/48679574/124057045-bd724e80-da61-11eb-80f1-67572ea7ae45.png" width="550px">
 
 
 
