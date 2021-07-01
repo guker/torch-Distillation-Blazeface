@@ -48,7 +48,7 @@ def kl_divergence_loss(logits, target):
 
 ## training log 
 
-<b>loss curve</b>
+<b>1.loss curve</b>
 
 <img src="https://user-images.githubusercontent.com/48679574/124040876-ba1a9b00-da40-11eb-99f7-6097a6b2e1f1.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/124040868-b6871400-da40-11eb-8453-fccfbbb90cb4.png" width="400px">
 
