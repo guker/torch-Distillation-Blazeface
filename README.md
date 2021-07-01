@@ -26,7 +26,7 @@ def kl_divergence_loss(logits, target):
 
 <b>1.MobileNet-backborn</b>
 
-<img src="https://user-images.githubusercontent.com/48679574/124057045-bd724e80-da61-11eb-80f1-67572ea7ae45.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/124057053-bea37b80-da61-11eb-9101-2b5b98081a66.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/124057055-bf3c1200-da61-11eb-8008-8dd66d84394c.png" width="400px">
+<img src="https://user-images.githubusercontent.com/48679574/124057045-bd724e80-da61-11eb-80f1-67572ea7ae45.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/124057053-bea37b80-da61-11eb-9101-2b5b98081a66.png" width="400px">
 
 
 
