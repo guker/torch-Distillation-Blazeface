@@ -36,14 +36,14 @@ def kl_divergence_loss(logits, target):
 
 <b>1.MobileNet-backborn (google pretrained tflite model)</b>
 
-<img src="https://user-images.githubusercontent.com/48679574/124057053-bea37b80-da61-11eb-9101-2b5b98081a66.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/124057045-bd724e80-da61-11eb-80f1-67572ea7ae45.png" width="400px">
+<img src="https://user-images.githubusercontent.com/48679574/124057053-bea37b80-da61-11eb-9101-2b5b98081a66.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/124084206-b5c6a000-da89-11eb-89e3-1bfc70275b1f.png" width="400px">
 
 
 
 
 <b>2.Resnet-backborn(Distillation customized Blazeface)</b>
 
-<img src="https://user-images.githubusercontent.com/48679574/124057242-0d511580-da62-11eb-8f6b-3f47ed28ef63.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/124057239-0c1fe880-da62-11eb-99d7-c4a77e8b783c.png" width="400px">
+<img src="https://user-images.githubusercontent.com/48679574/124057242-0d511580-da62-11eb-8f6b-3f47ed28ef63.png" width="400px"><img src="https://user-images.githubusercontent.com/48679574/124084216-b8c19080-da89-11eb-8527-a3349672f105.png" width="400px">
 
 
 ## training log 
